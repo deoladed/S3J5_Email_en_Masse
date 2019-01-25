@@ -7,4 +7,5 @@ gem 'nokogiri'
 gem 'json'
 gem 'google_drive'
 gem 'csv'
+gem 'mime'
 

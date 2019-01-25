@@ -2,60 +2,61 @@ require 'open-uri'
 # frozen_string_literal: true
 
 class Scrapper
-  attr_accessor :urlsdepartement, :ville, :email
-  @@ensemble = []
-  @@urls = []
+  attr_accessor :hash_emails, :urls, :urlsdep
+  @@quellemairieestscrappee = []
+  
   def initialize
-    @urlsdepartement = []
-    @ville = []
-    @email = []
-  end
-#revoir variables @ et @@
-#envoyer to json(mavaraible) --> nom et fichier
-##laisser choix ud departement?
-#ressortir nom des mairires scrappees?
-  def get_townhall_urls
+    @hash_emails = []
+    @urls = []
     @urlsdep = []
+    # @@quellemairieestscrappee = []
+    @email = []
+    @ville = []
+  end
+##laisser choix ud departement?
+  def get_townhall_urls
+    
     doc2 = Nokogiri::HTML(open('http://annuaire-des-mairies.com/')) # recuperation des urls
     doc2.xpath('//p/map/area').each.with_index { |node| @urlsdep << node['href'] }
-    @urlsdep.map! { |url| "http://www.annuaire-des-mairies.com/" + url } && @urlsdep.pop(5) # restructuration des urls
-    save_as_json
-
-    quellemairieestscrappee = []
-    3.times do 
+    @urlsdep.map! { |url| "http://www.annuaire-des-mairies.com/" + url } && @urlsdep.pop(5) && @urlsdep.delete_if { |url| url.include?("#") } # restructuration des urls
+    # p @urlsdep
+    3.times do |i|
       nomdelamairie = @urlsdep[rand(95)]
-      quellemairieestscrappee << nomdelamairie
+      puts "#{i+1}. Recuperation des adresses des mairies de #{nomdelamairie[36..-6].capitalize}..."
+      @@quellemairieestscrappee << nomdelamairie
       doc = Nokogiri::HTML(open(nomdelamairie)) # recuperation des urls
-      doc.xpath('//p/a[@class = "lientxt"]').each { |node| @@urls << node['href'][1..-1]}
+      doc.xpath('//p/a[@class = "lientxt"]').each { |node| @urls << node['href'][1..-1]}
     end
-    puts "On scrappe ces mairies cette fois ci : #{quellemairieestscrappee}"
-    # urlsdep.each do |urlsdepartement|
+    puts "On scrappe ces mairies cette fois ci :"
+    @@quellemairieestscrappee.each do |mairie|
+      puts "> #{mairie[36..-6].capitalize}"
+    end
+    # @urlsdep.each do |urlsdepartement| toutes les mairies de france
     #   doc = Nokogiri::HTML(open(urlsdepartement)) # recuperation des urls
-    #   doc.xpath('//p/a').each { |node| @@urls << node['href'][1..-1] }
+    #   doc.xpath('//p/a[@class = "lientxt"]').each { |node| @urls << node['href'][1..-1] }
     # end
-    @@urls.map! {|url| "https://www.annuaire-des-mairies.com" + url } # restructuration des @@urls
-    save_as_json
-    @@urls
+    @urls.map! {|url| "https://www.annuaire-des-mairies.com" + url } # restructuration des @urls
    end
  
   def get_townhall_email(urls)
-    p urls
-    compteur = urls.count # creation d'un compteur pour le fun, plus visuel et interactif
+    compteur = urls.count # creation d'un compteur
     urls.each.with_index do |townhall_url, i| # recuperation nom de ville et emails
-      # break if i == 20
+      break if i == 5
       doc = Nokogiri::HTML(open(townhall_url))
       doc.xpath('//html/body/div/main/section[2]/div/table/tbody/tr[4]/td[2]').each { |node| @email << node.text }
-      puts "Collection des emails en cours.. Numero : #{compteur -= 1}"
+      puts "Collection des emails en cours.. Numero : #{compteur -= 1}\n #{townhall_url[40..-6].capitalize}"
       doc.xpath('//strong/a[@class = "lientxt4"]').each { |node| @ville << node.text.capitalize }
-     end
-
-    @ville.size.times { |i| @@ensemble << { @ville[i] => @email[i] } } # creation du hash
+    end
+    @ville.size.times { |i| @hash_emails << { @ville[i] => @email[i] } } # creation du hash
   end
 
+  def self.all
+    return @@quellemairieestscrappee
+  end
 
   def save_as_json
     File.open('db/urls.json', 'w') do |f|
-      f.write(@@urls.to_json)
+      f.write(@urls.to_json)
     end
 
     File.open('db/urlsdep.json', 'w') do |f|
@@ -63,13 +64,16 @@ class Scrapper
     end
 
     File.open('db/emails.json', 'w') do |f|
-      f.write(@@ensemble.to_json)
+      f.write(@hash_emails.to_json)
     end
+    puts "\nEmails des mairies de #{@@quellemairieestscrappee[0][36..-6].capitalize}, #{@@quellemairieestscrappee[1][36..-6].capitalize} et #{@@quellemairieestscrappee[2][36..-6].capitalize} enregistrees au format CSV dans 'db/emails.json'"
   end
 
-  def perform
-    get_townhall_email(get_townhall_urls)
-    save_as_json
+  def save_as_csv
+    CSV.open('db/emails.csv', 'w') do |csv| # On ouvre le fichier csv
+      @hash_emails.each.with_index { |haash, i| csv << [i + 1, haash.keys.to_s[2..-3], haash.values.to_s[2..-3]] } # Et on stock nos valeurs sans leurs guillemets, avec un numero de ligne devant
+    end
+    puts "\nEmails des mairies de #{@@quellemairieestscrappee[0][36..-6].capitalize}, #{@@quellemairieestscrappee[1][36..-6].capitalize} et #{@@quellemairieestscrappee[2][36..-6].capitalize} enregistrees au format CSV dans 'db/emails.csv'"
   end
 end
 
