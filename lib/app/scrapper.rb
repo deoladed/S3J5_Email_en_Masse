@@ -4,13 +4,14 @@ require 'open-uri'
 class Scrapper
   attr_accessor :hash_emails, :urls, :urlsdep
   @@quellemairieestscrappee = []
-  
+  @@email = []
+
   def initialize
     @hash_emails = []
     @urls = []
     @urlsdep = []
     # @@quellemairieestscrappee = []
-    @email = []
+    
     @ville = []
   end
 ##laisser choix ud departement?
@@ -27,7 +28,7 @@ class Scrapper
       doc = Nokogiri::HTML(open(nomdelamairie)) # recuperation des urls
       doc.xpath('//p/a[@class = "lientxt"]').each { |node| @urls << node['href'][1..-1]}
     end
-    puts "On scrappe ces mairies cette fois ci :"
+    puts "Cibles du jour :"
     @@quellemairieestscrappee.each do |mairie|
       puts "> #{mairie[36..-6].capitalize}"
     end
@@ -41,17 +42,18 @@ class Scrapper
   def get_townhall_email(urls)
     compteur = urls.count # creation d'un compteur
     urls.each.with_index do |townhall_url, i| # recuperation nom de ville et emails
-      break if i == 5
+      break if i == 2
       doc = Nokogiri::HTML(open(townhall_url))
-      doc.xpath('//html/body/div/main/section[2]/div/table/tbody/tr[4]/td[2]').each { |node| @email << node.text }
-      puts "Collection des emails en cours.. Numero : #{compteur -= 1}\n #{townhall_url[40..-6].capitalize}"
+      doc.xpath('//html/body/div/main/section[2]/div/table/tbody/tr[4]/td[2]').each { |node| @@email << node.text }
+      puts "Collection des emails en cours.. Numero : #{compteur -= 1}\n> #{townhall_url[40..-6].capitalize}"
       doc.xpath('//strong/a[@class = "lientxt4"]').each { |node| @ville << node.text.capitalize }
     end
-    @ville.size.times { |i| @hash_emails << { @ville[i] => @email[i] } } # creation du hash
+    @ville.size.times { |i| @hash_emails << { @ville[i] => @@email[i] } } # creation du hash
+    return @hash_emails
   end
 
   def self.all
-    return @@quellemairieestscrappee
+    return yo = [@@quellemairieestscrappee[0][36..-6].capitalize, @@quellemairieestscrappee[1][36..-6].capitalize, @@quellemairieestscrappee[2][36..-6].capitalize, @@email.size, @hash_emails]
   end
 
   def save_as_json
